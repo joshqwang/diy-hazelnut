@@ -1,5 +1,5 @@
 open Sexplib.Std;
-// open Monad_lib.Monad; // Uncomment this line to use the maybe monad
+open Monad_lib.Monad; // Uncomment this line to use the maybe monad
 
 let compare_string = String.compare;
 let compare_int = Int.compare;
@@ -96,24 +96,83 @@ let erase_exp = (e: Zexp.t): Hexp.t => {
 
   raise(Unimplemented);
 };
+let extract_arrow_components = (t: Htyp.t): option((Htyp.t, Htyp.t)) =>
+  switch (t) {
+  | Arrow(t1, t2) => Some((t1, t2))
+  | _ => None
+  };
 
-let syn = (ctx: typctx, e: Hexp.t): option(Htyp.t) => {
+let rec syn = (ctx: typctx, e: Hexp.t): option(Htyp.t) => {
   // Used to suppress unused variable warnings
   // Okay to remove
-  let _ = ctx;
-  let _ = e;
+  switch(e){
+    // Rule 1a
+    | Var(name) => TypCtx.find_opt(name, ctx) 
+    // Rule 1b
+    | Ap(e1, e2) => {
+      let* t1 = syn(ctx, e1);
+      let* arrowed_t2_and_t =  mat(t1);
+      let* (t2, t) = extract_arrow_components(arrowed_t2_and_t);
+      ana(ctx, e2, t2) ? Some(t) : None;
+      }
+    // Rule 1c
+    | Lit(_) => Some(Num)
+    // Rule 1d
+    | Plus(e1, e2) => (ana(ctx, e1, Num) && ana(ctx, e2, Num)) ? Some(Num) : None
+    // Rule 1e
+    | Asc(e, t) => ana(ctx, e, t) ? Some(t) : None
+    // Rule 1f
+    | EHole => Some(Hole)
+    // Rule 1g
+    | NEHole(e) => Option.is_some(syn(ctx, e)) ? Some(Hole) : None
+    | _ =>  None;
+  };
 
-  raise(Unimplemented);
 }
 
 and ana = (ctx: typctx, e: Hexp.t, t: Htyp.t): bool => {
   // Used to suppress unused variable warnings
   // Okay to remove
-  let _ = ctx;
-  let _ = e;
-  let _ = t;
+  switch(e, t){
+    // Rule 2a
+    | (Lam(_, ep), _) => {
+      let* arrowed_t1_and_t2 =  mat(t);
+      let+ (_, t2) = extract_arrow_components(arrowed_t1_and_t2);
+      // (TypCtx.find(name, ctx) == t1) && ana(ctx, ep, t2);
+      ana(ctx, ep, t2)
+      } == Some(true);
+    // Rule 2b
+    | (_, _) =>  {
+      let+ tp = syn(ctx, e);
+      consistent(t, tp);
+      } == Some(true);
+  }
+}
 
-  raise(Unimplemented);
+and consistent = (t: Htyp.t, tp: Htyp.t): bool => {
+  // Used to suppress unused variable warnings
+  // Okay to remove
+  switch (t, tp){
+    // Rule 3a
+    | (_, Hole) => true
+    // Rule 3b
+    | (Hole, _) => true
+    // Rule 3c
+    | (_, _) when t == tp => true
+    // Rule 3d
+    | (Arrow(t1, t2), Arrow(tp1, tp2)) => consistent(t1, tp1) && consistent(t2, tp2) 
+    | (_, _) => false
+  };
+}
+
+and mat = (t: Htyp.t): option(Htyp.t) => {
+  switch (t){
+    // Rule 4a
+    | Hole => Some(Arrow(Hole, Hole))
+    // Rule 4b
+    | Arrow(t1, t2) => Some(Arrow(t1, t2))
+    | _ => None
+  };
 };
 
 let syn_action =
@@ -140,3 +199,4 @@ and ana_action =
 
   raise(Unimplemented);
 };
+

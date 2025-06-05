@@ -7,6 +7,7 @@ module Hazelnut = Hazelnut_lib.Hazelnut;
 module TypCtx = Map.Make(String);
 type typctx = Hazelnut.TypCtx.t(Hazelnut.Htyp.t);
 
+// x.(1 + 2) : Num -> Num
 let test_sasc_1 = () => {
   let ctx: typctx = TypCtx.empty;
   let he: Hazelnut.Hexp.t =
@@ -48,7 +49,8 @@ let test_sap_1 = () => {
   let expected: option(Hazelnut.Htyp.t) = Some(Hazelnut.Htyp.Num);
   check(htyp_typ, "same option(Hazelnut.Htyp.t)", given, expected);
 };
-
+// x, ((Num -> Num) -> Num)
+// x(lamy. 1)
 let test_sap_2 = () => {
   let ctx: typctx =
     TypCtx.singleton("x", Hazelnut.Htyp.Arrow(Arrow(Num, Num), Num));
