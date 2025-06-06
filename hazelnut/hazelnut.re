@@ -89,17 +89,31 @@ type typctx = TypCtx.t(Htyp.t);
 
 exception Unimplemented;
 
-let erase_exp = (e: Zexp.t): Hexp.t => {
-  // Used to suppress unused variable warnings
-  // Okay to remove
-  let _ = e;
+let rec erase_exp = (e: Zexp.t): Hexp.t => {
+  switch(e) {
+    | Cursor(t) => t;
+    | Lam(s, t) => Hexp.Lam(s, erase_exp(t));
+    | LAp(t, ht) => Hexp.Ap(erase_exp(t), ht);
+    | RAp(ht, t) => Hexp.Ap(ht, erase_exp(t));
+    | LPlus(t, ht) => Hexp.Plus(erase_exp(t), ht);
+    | RPlus(ht, t) => Hexp.Plus(ht, erase_exp(t));
+    | LAsc(t, ht) =>  Hexp.Asc(erase_exp(t), ht);
+    | RAsc(ht, t) => Hexp.Asc(ht, erase_type(t));
+    | NEHole(t) => Hexp.NEHole(erase_exp(t));
+  }
+}
+and erase_type = (t: Ztyp.t): Htyp.t => {
+    switch(t) {
+    | Cursor(t) => t;
+    | LArrow(t, ht) =>  Htyp.Arrow(erase_type(t), ht);
+    | RArrow(ht, t) => Htyp.Arrow(ht, erase_type(t));
+    }
 
-  raise(Unimplemented);
 };
 let extract_arrow_components = (t: Htyp.t): option((Htyp.t, Htyp.t)) =>
   switch (t) {
-  | Arrow(t1, t2) => Some((t1, t2))
-  | _ => None
+    | Arrow(t1, t2) => Some((t1, t2))
+    | _ => None
   };
 
 let rec syn = (ctx: typctx, e: Hexp.t): option(Htyp.t) => {
