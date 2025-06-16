@@ -203,7 +203,7 @@ let rec syn_action =
       ana(ctx, e, t4) ? Some((Zexp.LAp(ep, e), t5)) : None;
     //Rule 18c
     | (RAp(e, e_hat), _, _) =>
-      let* t2 = syn(ctx, erase_exp(e_hat));
+      let* t2 = syn(ctx, e);
       let* (t3, t4) = mat(t2);
       let* ep = ana_action(ctx, e_hat, a, t3);
       Some((Zexp.RAp(e, ep), t4));
@@ -248,6 +248,7 @@ and ana_action =
     base_analysis;
   } else {
     let rec_analysis =
+      // Rule 18a - Lambda zipper
       switch (e, a, t) {
       | (Lam(x, e), _, _) =>
         let* (t1, t2) = mat(t);
@@ -356,10 +357,11 @@ and syn_construction =
       Arrow(Hole, Hole),
     ))
   // Rule 13h - Application
-  | (Cursor(NEHole(e)), _, Ap) =>
-    Option.is_some(mat(t))
-      ? Some((RAp(e, Cursor(EHole)), Hole))
-      : Some((RAp(NEHole(e), Cursor(EHole)), Hole))
+  | (Cursor(e), _, Ap) when Option.is_some(mat(t)) =>
+    let+ (_, t2) = mat(t);
+    (Zexp.RAp(e, Cursor(EHole)), t2);
+  | (Cursor(e), _, Ap) when !consistent(t, Arrow(Hole, Hole)) =>
+    Some((RAp(NEHole(e), Cursor(EHole)), Hole))
   // Rule 13j - Literals
   | (Cursor(EHole), Hole, Lit(n)) => Some((Cursor(Lit(n)), Num))
   //Rule 13l - Plus
